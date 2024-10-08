@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalenderansicht</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #F5F5F5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: auto repeat(10, 1fr);
+            gap: 1px;
+        }
+        .day {
+            background-color: #84BD22;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-weight: bold;
+        }
+        .time-slot {
+            border: 1px solid #299E8E;
+            height: 50px;
+            text-align: center;
+            line-height: 50px;
+            position: relative;
+            cursor: pointer;
+            background-color: #f9f9f9; /* Hintergrundfarbe für freie Slots */
+        }
+        .booked {
+            background-color: #d9534f; /* Farbe für gebuchte Slots */
+            color: white;
+            cursor: not-allowed;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            width: 300px; 
+            text-align: center;
+        }
+        .close {
+            cursor: pointer;
+            color: #299E8E;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2 id="weekLabel"></h2>
+            <button id="prevWeek">&lt; Vorherige Woche</button>
+            <button id="nextWeek">Nächste Woche &gt;</button>
+        </div>
+        <div class="calendar" id="calendar">
+            <!-- Header mit Wochentagen -->
+        </div>
+    </div>
+
+    <!-- Buchungsmodal -->
+    <div class="modal" id="bookingModal">
+        <div class="modal-content">
+            <span class="close" id="closeModal">&times;</span>
+            <h3>Buchungsdetails</h3>
+            <p id="slotDetails"></p>
+            <button id="confirmBooking">Buchen</button>
+        </div>
+    </div>
+
+    <script>
+        const calendarElement = document.getElementById("calendar");
+        const weekLabel = document.getElementById("weekLabel");
+        const bookingModal = document.getElementById("bookingModal");
+        const slotDetails = document.getElementById("slotDetails");
+        const closeModal = document.getElementById("closeModal");
+        let currentWeekStart = new Date(); 
+
+        // Setze den aktuellen Wochenstart auf den letzten Montag
+        function setWeekStart() {
+            const day = currentWeekStart.getDay();
+            const diff = currentWeekStart.getDate() - day + (day === 0 ? -6 : 1);
+            currentWeekStart.setDate(diff);
+        }
+
+        // Erstelle den Kalender
+        function renderCalendar() {
+            setWeekStart();
+            weekLabel.textContent = `${currentWeekStart.toLocaleDateString('de-DE', { month: 'long' })} ${currentWeekStart.getDate()} - ${new Date(currentWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('de-DE', { month: 'long' })} ${currentWeekStart.getDate() + 6}`;
+            calendarElement.innerHTML = '';
+
+            const days = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+            // Header mit Wochentagen
+            days.forEach((day) => {
+                const dayHeader = document.createElement("div");
+                dayHeader.className = "day";
+                dayHeader.innerText = day;
+                calendarElement.appendChild(dayHeader);
+            });
+
+            const timeSlots = [
+                "08:00", "09:00", "10:00", "11:00", "12:00",
+                "13:00", "14:00", "15:00", "16:00", "17:00"
+            ];
+
+            // Beispiel gebuchter Slots
+            const bookedSlots = [
+                { day: 0, time: "08:00" }, // Sonntag
+                { day: 2, time: "10:00" }, // Mittwoch
+                { day: 4, time: "15:00" }  // Freitag
+            ];
+
+            timeSlots.forEach((time) => {
+                for (let i = 0; i < days.length; i++) {
+                    const timeSlot = document.createElement("div");
+                    timeSlot.className = "time-slot";
+                    timeSlot.innerText = time;
+                    timeSlot.dataset.day = i; 
+                    timeSlot.dataset.time = time;
+
+                    // Check if the slot is booked
+                    const isBooked = bookedSlots.some(slot => slot.day === i && slot.time === time);
+                    if (isBooked) {
+                        timeSlot.classList.add("booked");
+                        timeSlot.innerText += " (Gebucht)";
+                    } else {
+                        timeSlot.addEventListener("click", () => openBookingModal(timeSlot));
+                    }
+
+                    calendarElement.appendChild(timeSlot);
+                }
+            });
+        }
+
+        // Buchungsmodal öffnen
+        function openBookingModal(slot) {
+            slotDetails.innerText = `Slot: ${slot.dataset.time} am ${new Date(currentWeekStart.getTime() + slot.dataset.day * 24 * 60 * 60 * 1000).toLocaleDateString('de-DE')}`;
+            bookingModal.style.display = "flex";
+        }
+
+        // Schließe das Buchungsmodal
+        closeModal.onclick = () => {
+            bookingModal.style.display = "none";
+        };
+
+        // Navigation durch die Wochen
+        document.getElementById("prevWeek").onclick = () => {
+            currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+            renderCalendar();
+        };
+        document.getElementById("nextWeek").onclick = () => {
+            currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+            renderCalendar();
+        };
+
+        // Initialisiere den Kalender
+        renderCalendar();
+    </script>
+</body>
+</html>
